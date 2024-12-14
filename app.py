@@ -11,7 +11,19 @@ def get_db_connection():
     connection.row_factory = sqlite3.Row
     return connection
 
-# Authentication Routes
+# Homepage
+@app.route('/')
+def index():
+    connection = get_db_connection()
+    posts = connection.execute("""
+        SELECT posts.*, users.username AS author 
+        FROM posts JOIN users ON posts.author_id = users.id
+        ORDER BY created_at DESC
+    """).fetchall()
+    connection.close()
+    return render_template('index.html', posts=posts)
+
+# Login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -29,29 +41,26 @@ def login():
         flash('Invalid credentials. Please try again.')
     return render_template('login.html')
 
+# Logout
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    flash('You have been logged out.')
+    return redirect(url_for('index'))
 
-# Dashboard and Blog Routes
-@app.route('/')
-def index():
-    connection = get_db_connection()
-    posts = connection.execute("SELECT * FROM posts ORDER BY created_at DESC").fetchall()
-    connection.close()
-    return render_template('index.html', posts=posts)
-
+# Dashboard
 @app.route('/dashboard')
 def dashboard():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     connection = get_db_connection()
-    posts = connection.execute("SELECT * FROM posts WHERE author_id = ? ORDER BY created_at DESC", 
-                                (session['user_id'],)).fetchall()
+    posts = connection.execute("""
+        SELECT * FROM posts WHERE author_id = ? ORDER BY created_at DESC
+    """, (session['user_id'],)).fetchall()
     connection.close()
     return render_template('dashboard.html', posts=posts)
 
+# Create New Post
 @app.route('/post/new', methods=['GET', 'POST'])
 def new_post():
     if not session.get('logged_in'):
@@ -60,18 +69,17 @@ def new_post():
         title = request.form['title']
         content = request.form['content']
         connection = get_db_connection()
-        try:
-            connection.execute("INSERT INTO posts (title, content, author_id, created_at) VALUES (?, ?, ?, ?)", 
-                               (title, content, session['user_id'], datetime.now()))
-            connection.commit()
-            flash('Post created successfully.')
-            return redirect(url_for('dashboard'))
-        except sqlite3.Error as e:
-            flash(f'Error creating post: {e}')
-        finally:
-            connection.close()
+        connection.execute("""
+            INSERT INTO posts (title, content, author_id, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (title, content, session['user_id'], datetime.now()))
+        connection.commit()
+        connection.close()
+        flash('Post created successfully.')
+        return redirect(url_for('dashboard'))
     return render_template('new_post.html')
 
+# Edit Post
 @app.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
 def edit_post(post_id):
     if not session.get('logged_in'):
@@ -79,67 +87,33 @@ def edit_post(post_id):
     connection = get_db_connection()
     post = connection.execute("SELECT * FROM posts WHERE id = ? AND author_id = ?", 
                                (post_id, session['user_id'])).fetchone()
+    if not post:
+        flash('Post not found or permission denied.')
+        return redirect(url_for('dashboard'))
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-        try:
-            connection.execute("UPDATE posts SET title = ?, content = ? WHERE id = ?", 
-                               (title, content, post_id))
-            connection.commit()
-            flash('Post updated successfully.')
-            return redirect(url_for('dashboard'))
-        except sqlite3.Error as e:
-            flash(f'Error updating post: {e}')
-        finally:
-            connection.close()
-    connection.close()
+        connection.execute("UPDATE posts SET title = ?, content = ? WHERE id = ?", 
+                           (title, content, post_id))
+        connection.commit()
+        connection.close()
+        flash('Post updated successfully.')
+        return redirect(url_for('dashboard'))
     return render_template('edit_post.html', post=post)
 
-@app.route('/post/<int:post_id>/delete')
+# Delete Post
+@app.route('/post/<int:post_id>/delete', methods=['POST'])
 def delete_post(post_id):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     connection = get_db_connection()
-    try:
-        connection.execute("DELETE FROM posts WHERE id = ? AND author_id = ?", 
-                           (post_id, session['user_id']))
-        connection.commit()
-        flash('Post deleted successfully.')
-    except sqlite3.Error as e:
-        flash(f'Error deleting post: {e}')
-    finally:
-        connection.close()
+    connection.execute("DELETE FROM posts WHERE id = ? AND author_id = ?", 
+                       (post_id, session['user_id']))
+    connection.commit()
+    connection.close()
+    flash('Post deleted successfully.')
     return redirect(url_for('dashboard'))
 
-@app.route('/post/<int:post_id>')
-def view_post(post_id):
-    connection = get_db_connection()
-    post = connection.execute("SELECT posts.*, users.username AS author FROM posts JOIN users ON posts.author_id = users.id WHERE posts.id = ?", 
-                               (post_id,)).fetchone()
-    connection.close()
-    return render_template('view_post.html', post=post)
-
-# User Registration (Optional for Admin Only)
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        connection = get_db_connection()
-        try:
-            connection.execute("INSERT INTO users (username, password) VALUES (?, ?)", 
-                               (username, password))
-            connection.commit()
-            flash('User registered successfully.')
-            return redirect(url_for('dashboard'))
-        except sqlite3.Error as e:
-            flash(f'Error registering user: {e}')
-        finally:
-            connection.close()
-    return render_template('register.html')
-
-# Run the application
+# Run the app
 if __name__ == '__main__':
     app.run(debug=True)

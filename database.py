@@ -1,30 +1,24 @@
 import sqlite3
 
-# Connect to the database or create it if it doesn't exist
+# Connect to SQLite database
 connection = sqlite3.connect('blog.db')
 cursor = connection.cursor()
 
-# Execute schema script to create tables
-with open('schema.sql') as f:
+# Read schema file and execute it
+with open('Schema.sql') as f:
     cursor.executescript(f.read())
 
-# Insert sample user
+# Insert a sample user (username: admin, password: admin123)
 cursor.execute("""
-    INSERT INTO users (username, password, email)
-    VALUES (?, ?, ?, ?, ?)
-""", ("John1234", "admin123") "john@example.com"))  # Password should be hashed in production
+    INSERT INTO users (username, password) VALUES (?, ?)
+""", ("admin", "admin123"))  # Password should be hashed in production
 
-# Insert sample posts
-cursor.execute("""
-    INSERT INTO posts (title, content, author_id, created_at)
-    VALUES (?, ?, ?, ?)
-""", ("Welcome to My Blog", "This is the first blog post.", 1, "2024-12-14 10:00:00"))
-
+# Insert a sample post by the admin user
 cursor.execute("""
     INSERT INTO posts (title, content, author_id, created_at)
     VALUES (?, ?, ?, ?)
-""", ("Another Post", "This is another blog post content.", 1, "2024-12-14 11:00:00"))
+""", ("Welcome to My Blog", "This is the first post on my blog!", 1, "2024-12-14 10:00:00"))
 
-# Commit changes and close the connection
+# Commit and close the connection
 connection.commit()
 connection.close()
