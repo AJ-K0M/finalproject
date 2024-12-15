@@ -8,25 +8,18 @@
 </head>
 <body>
     <div class="container mt-5">
-        <!-- Logout Button -->
-        <div class="d-flex justify-content-end">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Dashboard</h1>
             <a href="/logout" class="btn btn-outline-danger">Logout</a>
         </div>
-
-        <!-- Dashboard Heading -->
-        <h1 class="text-center mt-4">Dashboard</h1>
-
-        <!-- Create New Post Button -->
-        <div class="text-center mt-4">
+        <div class="text-center mb-4">
             <a href="/post/new" class="btn btn-success">Create New Post</a>
         </div>
-
-        <!-- User's Posts -->
-        <ul class="list-group mt-4">
+        <ul class="list-group">
             {% for post in posts %}
-            <li class="list-group-item">
+            <li class="list-group-item mb-3">
                 <h3>{{ post['title'] }}</h3>
-                <p>{{ post['created_at'] }}</p>
+                <p class="text-muted">{{ post['created_at'] }}</p>
                 <div class="d-flex justify-content-between">
                     <a href="/post/{{ post['id'] }}/edit" class="btn btn-warning">Edit</a>
                     <form action="/post/{{ post['id'] }}/delete" method="POST">
